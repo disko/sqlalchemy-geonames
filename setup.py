@@ -5,6 +5,7 @@ sqlalchemy-geonames
 
 """
 from __future__ import print_function
+import pip
 from pip.req import parse_requirements
 from setuptools import setup, find_packages
 
@@ -27,7 +28,9 @@ setup(
     long_description=__doc__,
     packages=find_packages(exclude=('sqlalchemy_geonames.tests', )),
     install_requires=[str(ir.req) for ir
-                      in parse_requirements('requirements.txt')],
+                      in parse_requirements(
+                        'requirements.txt',
+                        session=pip.download.PipSession())],
     entry_points={
         'console_scripts': {
             'sqlageonames = sqlalchemy_geonames.bin.sqlageonames:main',
