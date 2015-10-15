@@ -1,9 +1,12 @@
+from __future__ import absolute_import
 from __future__ import print_function
-from . import reader, models, settings
-from ._compat import implements_to_string
+
+from sqlalchemy_geonames import reader, models, settings
+# noinspection PyProtectedMember
+from sqlalchemy_geonames._compat import implements_to_string
+
 
 # See note in _compat for why decimal is imported
-from ._compat import decimal  # noqa
 
 
 @implements_to_string
@@ -44,8 +47,8 @@ class Importer(object):
         except Exception as exc:
             if settings.DEBUG:
                 print(exc)
-                import ipdb
-                ipdb.set_trace()
+                import pdb
+                pdb.set_trace()
             else:
                 raise
         finally:
@@ -122,11 +125,13 @@ class GeonameImportOptions(ImportOptions):
     model_dependencies = [models.GeonameFeature, models.GeonameTimezone,
                           models.GeonameCountry]
 
+
 class GeonamePostalCodeImportOptions(ImportOptions):
     file_class = reader.GeonamePostalCodeReader
     model = models.GeonamePostalCode
     modifiers = [set_geopoint_modifier, ]
-    model_dependencies = [models.Geoname, models.GeonameFeature, models.GeonameCountry, ]
+    model_dependencies = [models.Geoname, models.GeonameFeature,
+                          models.GeonameCountry, ]
 
 # class GeonameLanguageImportOptions(ImportOptions):
 #     file_class = reader.GeonameIsoLanguageCodesReader
@@ -183,6 +188,7 @@ def get_importer_instances(db_session, download_dir, *filepaths):
             importer_options = _import_options_map[filename]
         except KeyError:
             raise Exception(errmsg.format(filename))
-        importer_instance = Importer(importer_options, filepath, db_session, download_dir)
+        importer_instance = Importer(importer_options, filepath, db_session,
+                                     download_dir)
         importer_instances.append(importer_instance)
     return sorted(importer_instances)

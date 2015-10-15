@@ -1,9 +1,12 @@
+from __future__ import absolute_import
+
 import errno
 import os
 from functools import reduce
 from getpass import getpass
-from . import _compat
 
+# noinspection PyProtectedMember
+from sqlalchemy_geonames import _compat
 
 missing = object()
 
@@ -47,7 +50,6 @@ def get_attr(obj, attr, default=missing):
     It also supports specifying indexes in the `attr` string.
     """
     def getattr_or_index(obj, attr):
-        index = None
         if attr.endswith(']'):
             attr, index = attr[:-1].split('[')
             return getattr(obj, attr)[int(index)]

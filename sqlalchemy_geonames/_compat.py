@@ -9,11 +9,12 @@ _identity = lambda x: x
 
 if not PY2:
     text_type = str
-    string_types = (str, )
+    string_types = (str,)
     implements_to_string = _identity
 else:
     text_type = unicode  # noqa
     string_types = (str, unicode)  # noqa
+
 
     def implements_to_string(cls):
         cls.__unicode__ = cls.__str__

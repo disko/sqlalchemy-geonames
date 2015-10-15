@@ -1,10 +1,12 @@
+from __future__ import absolute_import
+
+from geoalchemy2 import Geography
 from sqlalchemy import (Column, ForeignKey, Integer, String, Text, BigInteger,
                         DateTime, Numeric)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from geoalchemy2 import Geography
-from .utils import simple_repr
 
+from .utils import simple_repr
 
 GeonameBase = declarative_base()
 

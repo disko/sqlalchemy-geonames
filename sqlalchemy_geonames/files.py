@@ -1,8 +1,10 @@
 BASE_DOWNLOAD_URL = 'http://download.geonames.org/export/dump/'
 POSTAL_CODE_BASE_DOWNLOAD_URL = 'http://download.geonames.org/export/zip/'
 
+
 def full_url(filename):
     return BASE_DOWNLOAD_URL + filename
+
 
 def postal_code_url(filename):
     return POSTAL_CODE_BASE_DOWNLOAD_URL + filename

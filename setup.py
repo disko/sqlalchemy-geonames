@@ -5,7 +5,9 @@ sqlalchemy-geonames
 
 """
 from __future__ import print_function
+# noinspection PyPackageRequirements
 import pip
+# noinspection PyPackageRequirements
 from pip.req import parse_requirements
 from setuptools import setup, find_packages
 

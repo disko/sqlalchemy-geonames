@@ -1,9 +1,13 @@
 """Classes for reading geonames text data dumps"""
+from __future__ import absolute_import
+
 import codecs
 from datetime import date
-from . import log
-from ._compat import text_type, Decimal
-from .utils import cached_property, try_int
+
+from sqlalchemy_geonames import log
+# noinspection PyProtectedMember
+from sqlalchemy_geonames._compat import text_type, Decimal
+from sqlalchemy_geonames.utils import cached_property, try_int
 
 logger = log.get_logger()
 
@@ -18,7 +22,7 @@ def fastdate(val):
     return date(int(val[:4]), int(val[5:7]), int(val[8:10]))
 
 
-class GeonameReader(object):
+class BaseGeonameReader(object):
 
     # The first row with data (0-indexed). Some files, like timeZones.txt
     # contains headers. The headers are explicitly defined in each class so
@@ -115,7 +119,7 @@ class GeonameReader(object):
                 yield dct
 
 
-class GeonameReader(GeonameReader):
+class GeonameReader(BaseGeonameReader):
     field_definitions = (
         ('geonameid', int),
         ('name', text_type),
@@ -139,7 +143,7 @@ class GeonameReader(GeonameReader):
     )
 
 
-class GeonameFeatureReader(GeonameReader):
+class GeonameFeatureReader(BaseGeonameReader):
     skip_on_missing = True
 
     def row_preprocess(self, row_str):
@@ -156,7 +160,7 @@ class GeonameFeatureReader(GeonameReader):
     )
 
 
-class GeonameTimezoneReader(GeonameReader):
+class GeonameTimezoneReader(BaseGeonameReader):
     # First row contains headers
     start_row = 1
 
@@ -169,7 +173,7 @@ class GeonameTimezoneReader(GeonameReader):
     )
 
 
-class GeonameCountryInfoReader(GeonameReader):
+class GeonameCountryInfoReader(BaseGeonameReader):
     field_definitions = (
         ('iso', text_type),
         ('iso3', text_type),
@@ -193,15 +197,15 @@ class GeonameCountryInfoReader(GeonameReader):
     )
 
 
-class GeonameHierarchyReader(GeonameReader):
+class GeonameHierarchyReader(BaseGeonameReader):
     pass  # TODO: Write
 
 
-class GeonameAlternateNamesReader(GeonameReader):
+class GeonameAlternateNamesReader(BaseGeonameReader):
     pass  # TODO: Write
 
 
-class GeonamePostalCodeReader(GeonameReader):
+class GeonamePostalCodeReader(BaseGeonameReader):
     field_definitions = (
         ('country_code', text_type),
         ('postal_code', text_type),
