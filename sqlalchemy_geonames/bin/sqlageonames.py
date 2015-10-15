@@ -70,35 +70,47 @@ def get_download_config(primary_filename, language_code=DEFAULT_LANGUAGE_CODE):
     return download_config
 
 
-def download(url, download_dir=DEFAULT_DOWNLOAD_DIR, use_cache=True,
+def download(opts, download_dir=DEFAULT_DOWNLOAD_DIR, use_cache=True,
              chunk_size=1024):
-    _, _, download_filename = url.rpartition('/')
-    local_filepath = get_local_filepath(download_filename, download_dir)
-    if use_cache and os.path.exists(local_filepath):
-        print(u'Using cached file {}'.format(local_filepath))
+    def _download(url, download_dir, use_cache, chunk_size=1024):
+        base_url, _, download_filename = url.rpartition('/')
+        local_filepath = get_local_filepath(download_filename, download_dir)
+        if use_cache and os.path.exists(local_filepath):
+            print(u'Using cached file {}'.format(local_filepath))
+            return local_filepath
+        else:
+            print(u'Downloading {} to {}...'.format(download_filename,
+                                                    local_filepath))
+        req = requests.get(url, stream=True)
+        req.raise_for_status()
+        content_length = int(req.headers['content-length'])
+        pbar = get_progress_bar(maxval=content_length)
+        pbar.start()
+        mkdir_p(download_dir)  # Make sure path exists
+        with open(local_filepath, 'wb') as fh:
+            for chunk in req.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    import ipdb
+                    ipdb.set_trace()
+                if chunk:  # Filter out keep-alive new chunks
+                    fh.write(chunk)
+                    fh.flush()
+                new_pbar_val = pbar.value + chunk_size
+                if new_pbar_val <= pbar.max_value:
+                    pbar.update(new_pbar_val)
+        pbar.finish()
         return local_filepath
-    else:
-        print(u'Downloading {} to {}...'.format(download_filename,
-                                                local_filepath))
-    req = requests.get(url, stream=True)
-    req.raise_for_status()
-    content_length = int(req.headers['content-length'])
-    pbar = get_progress_bar(maxval=content_length)
-    pbar.start()
-    mkdir_p(download_dir)  # Make sure path exists
-    with open(local_filepath, 'wb') as fh:
-        for chunk in req.iter_content(chunk_size=chunk_size):
-            if not chunk:
-                import ipdb
-                ipdb.set_trace()
-            if chunk:  # Filter out keep-alive new chunks
-                fh.write(chunk)
-                fh.flush()
-            new_pbar_val = pbar.currval + chunk_size
-            if new_pbar_val <= pbar.maxval:
-                pbar.update(new_pbar_val)
-    pbar.finish()
-    return local_filepath
+
+    local_filepaths = [_download(opts['url'], download_dir=download_dir,
+                                 use_cache=use_cache, chunk_size=chunk_size)]
+
+    if 'postal_codes_url' in opts:
+        local_filepaths.append(
+            _download(opts['postal_codes_url'],
+                      download_dir=os.sep.join([download_dir, 'postal_codes']),
+                      use_cache=use_cache, chunk_size=chunk_size))
+
+    return local_filepaths
 
 
 def get_db_url(database_type, database, username,
@@ -161,8 +173,8 @@ def get_db_session(db_url):
         return db_session
 
 
-def run_importers(db_session, local_filepaths):
-    for importer in get_importer_instances(db_session, *local_filepaths):
+def run_importers(db_session, download_dir, local_filepaths):
+    for importer in get_importer_instances(db_session, download_dir, *local_filepaths):
         print("Running importer for {}...".format(importer.filename))
         importer.run()
 
@@ -179,17 +191,17 @@ def download_and_import(filename, database_type, database, username,
     download_config = get_download_config(filename, language_code)
     local_filepaths = []
     for filename, opts in download_config.items():
-        local_filepath = download(opts['url'], download_dir, use_cache)
-        if opts.get('unzip') is True:
-            local_filepath = unzip(local_filepath,
-                                   filename_to_extract=filename,
-                                   extract_dir=download_dir)
-        local_filepaths.append(local_filepath)
+        for local_filepath in download(opts, download_dir, use_cache):
+            if opts.get('unzip') is True:
+                local_filepath = unzip(local_filepath,
+                                       filename_to_extract=filename,
+                                       extract_dir=os.path.dirname(local_filepath))
+            local_filepaths.append(local_filepath)
 
     create_geoname_tables(db_session, recreate_tables=recreate_tables)
     if not keep_existing_data:
         purge_geoname_tables(db_session)
-    run_importers(db_session, local_filepaths)
+    run_importers(db_session, download_dir, local_filepaths)
 
 
 def main():

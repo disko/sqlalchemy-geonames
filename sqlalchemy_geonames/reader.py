@@ -199,3 +199,20 @@ class GeonameHierarchyReader(GeonameReader):
 
 class GeonameAlternateNamesReader(GeonameReader):
     pass  # TODO: Write
+
+
+class GeonamePostalCodeReader(GeonameReader):
+    field_definitions = (
+        ('country_code', text_type),
+        ('postal_code', text_type),
+        ('place_name', text_type),
+        ('admin_name1', text_type),
+        ('admin_code1', text_type),
+        ('admin_name2', text_type),
+        ('admin_code2', text_type),
+        ('admin_name3', text_type),
+        ('admin_code3', text_type),
+        ('latitude', Decimal),
+        ('longitude', Decimal),
+        ('accuracy', try_int),
+    )

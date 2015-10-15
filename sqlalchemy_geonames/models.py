@@ -134,3 +134,36 @@ class Geoname(GeonameBase):
     # (Renamed from timezone)
     timezone_id = Column(String(40), ForeignKey(GeonameTimezone.timezone_id))
     timezone = relationship(GeonameFeature)
+
+
+class GeonamePostalCode(GeonameBase):
+    __tablename__ = 'geonamepostalcode'
+    __repr__ = simple_repr('country_code', 'postal_code')
+
+    # iso country code
+    country_code = Column(String(2), ForeignKey(GeonameCountry.iso),
+                          nullable=False, primary_key=True)
+
+    postal_code = Column(String(20), nullable=False, primary_key=True)
+    place_name = Column(String(180), nullable=False, primary_key=True)
+
+    # 1. order subdivision (state)
+    admin_name1 = Column(String(100), nullable=False)
+    admin_code1 = Column(String(20), nullable=False)
+
+    # 2. order subdivision (state)
+    admin_name2 = Column(String(100), nullable=False)
+    admin_code2 = Column(String(20), nullable=False)
+
+    # 3. order subdivision (state)
+    admin_name3 = Column(String(100), nullable=False)
+    admin_code3 = Column(String(20), nullable=False)
+
+    # latitude in decimal degrees (wgs84)
+    # latitude = Column(Numeric(10, 7), nullable=False)
+    # longitude in decimal degrees (wgs84)
+    # longitude = Column(Numeric(10, 7), nullable=False)
+
+    point = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
+
+    accuracy = Column(Integer())
