@@ -1,8 +1,13 @@
 BASE_DOWNLOAD_URL = 'http://download.geonames.org/export/dump/'
+POSTAL_CODE_BASE_DOWNLOAD_URL = 'http://download.geonames.org/export/zip/'
 
 
 def full_url(filename):
     return BASE_DOWNLOAD_URL + filename
+
+
+def postal_code_url(filename):
+    return POSTAL_CODE_BASE_DOWNLOAD_URL + filename
 
 
 filename_config = {
@@ -39,6 +44,13 @@ filename_config = {
     'countryInfo.txt': {
         'url': full_url('countryInfo.txt'),
     },
+    'DE.txt': {
+        'url': full_url('DE.zip'),
+        'postal_codes_url': postal_code_url('DE.zip'),
+        'unzip': True,
+        'is_primary': True,
+    },
+
     'featureCodes_bg.txt': {
         'url': full_url('featureCodes_bg.txt'),
         'language_code': 'bg',

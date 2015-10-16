@@ -1,9 +1,12 @@
+from __future__ import absolute_import
 from __future__ import print_function
-from . import reader, models, settings
-from ._compat import implements_to_string
+
+from sqlalchemy_geonames import reader, models, settings
+# noinspection PyProtectedMember
+from sqlalchemy_geonames._compat import implements_to_string
+
 
 # See note in _compat for why decimal is imported
-from ._compat import decimal  # noqa
 
 
 @implements_to_string
@@ -16,9 +19,9 @@ class Importer(object):
                                          self.filename)
     __repr__ = __str__
 
-    def __init__(self, options, filepath, session):
+    def __init__(self, options, filepath, session, download_dir):
         self.filepath = filepath
-        self.filename = _get_import_filename(filepath)
+        self.filename = _get_import_filename(filepath, download_dir)
         self.session = session
         self.engine = session.bind
         self.stored_rows = []
@@ -44,8 +47,8 @@ class Importer(object):
         except Exception as exc:
             if settings.DEBUG:
                 print(exc)
-                import ipdb
-                ipdb.set_trace()
+                import pdb
+                pdb.set_trace()
             else:
                 raise
         finally:
@@ -76,8 +79,8 @@ def clear_empty_fks_modifier(session, model, row):
     return row
 
 
-def _get_import_filename(filepath):
-    return filepath.rpartition('/')[2]
+def _get_import_filename(filepath, download_dir):
+    return filepath.replace(download_dir, '')[1:]
 
 
 @implements_to_string
@@ -123,6 +126,13 @@ class GeonameImportOptions(ImportOptions):
                           models.GeonameCountry]
 
 
+class GeonamePostalCodeImportOptions(ImportOptions):
+    file_class = reader.GeonamePostalCodeReader
+    model = models.GeonamePostalCode
+    modifiers = [set_geopoint_modifier, ]
+    model_dependencies = [models.Geoname, models.GeonameFeature,
+                          models.GeonameCountry, ]
+
 # class GeonameLanguageImportOptions(ImportOptions):
 #     file_class = reader.GeonameIsoLanguageCodesReader
 #     model = models.GeonameLanguageCode
@@ -154,9 +164,11 @@ _import_options_map = {
     'timeZones.txt': GeonameTimezoneImportOptions,
     'countryInfo.txt': GeonameCountryImportOptions,
     'allCountries.txt': GeonameImportOptions,
+    'DE.txt': GeonameImportOptions,
     'cities1000.txt': GeonameImportOptions,
     'cities5000.txt': GeonameImportOptions,
     'cities15000.txt': GeonameImportOptions,
+    'postal_codes/DE.txt': GeonamePostalCodeImportOptions,
     # 'iso-languagecodes.txt': GeonameLanguageImportOptions,
     # 'userTags.txt': GeonameUserTagImportOptions,
     # 'hierarchy.txt': GeonameHierarchyImportOptions,
@@ -164,18 +176,19 @@ _import_options_map = {
 }
 
 
-def get_importer_instances(db_session, *filepaths):
+def get_importer_instances(db_session, download_dir, *filepaths):
     """Creates importer instances from `filepaths` and sorts them by their
     dependencies.
     """
     importer_instances = []
     errmsg = u'No importer defined for filename "{}"'
     for filepath in filepaths:
-        filename = _get_import_filename(filepath)
+        filename = _get_import_filename(filepath, download_dir)
         try:
             importer_options = _import_options_map[filename]
         except KeyError:
             raise Exception(errmsg.format(filename))
-        importer_instance = Importer(importer_options, filepath, db_session)
+        importer_instance = Importer(importer_options, filepath, db_session,
+                                     download_dir)
         importer_instances.append(importer_instance)
     return sorted(importer_instances)

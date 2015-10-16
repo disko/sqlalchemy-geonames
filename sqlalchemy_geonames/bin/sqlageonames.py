@@ -13,19 +13,26 @@ be imported. To download different data one can pass in any of the following:
                       a second no matter how small the result set is.
 
 """
+from __future__ import absolute_import
 from __future__ import print_function
+
 import argparse
 import os
 import sys
 from copy import deepcopy
 from zipfile import ZipFile
+
 import requests
+# noinspection PyPackageRequirements
 from progressbar import ProgressBar, ETA, FileTransferSpeed, Percentage, Bar
 from sqlalchemy import engine, create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from .. import filename_config, get_importer_instances, GeonameBase
-from ..utils import get_password, normalize_path, mkdir_p
-from ..imports import _import_options_map
+
+from sqlalchemy_geonames import filename_config, get_importer_instances, \
+    GeonameBase
+# noinspection PyProtectedMember
+from sqlalchemy_geonames.imports import _import_options_map
+from sqlalchemy_geonames.utils import get_password, normalize_path, mkdir_p
 
 
 class RawArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
@@ -33,8 +40,9 @@ class RawArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
     """Retain both raw text descriptions and argument defaults"""
     pass
 
+
 NOT_SET = object()
-DATABASE_CHOICES = ('postgresql', )
+DATABASE_CHOICES = ('postgresql',)
 DEFAULT_DOWNLOAD_DIR = normalize_path('~/.sqlageonames')
 DEFAULT_LANGUAGE_CODE = 'en'
 PRIMARY_GEONAME_FILENAMES = [name for name, opts in filename_config.items()
@@ -60,8 +68,8 @@ def get_download_config(primary_filename, language_code=DEFAULT_LANGUAGE_CODE):
                        if k in supported_filenames}
     for filename, opts in download_config.items():
         # Only download the selected primary primary_filename file
-        if (filename in PRIMARY_GEONAME_FILENAMES
-                and filename != primary_filename):
+        if (filename in PRIMARY_GEONAME_FILENAMES and
+                    filename != primary_filename):
             del download_config[filename]
         # If a file is bound to a specific language code and is not the
         # specified one then remove it.
@@ -70,35 +78,48 @@ def get_download_config(primary_filename, language_code=DEFAULT_LANGUAGE_CODE):
     return download_config
 
 
-def download(url, download_dir=DEFAULT_DOWNLOAD_DIR, use_cache=True,
+def download(opts, download_dir=DEFAULT_DOWNLOAD_DIR, use_cache=True,
              chunk_size=1024):
-    _, _, download_filename = url.rpartition('/')
-    local_filepath = get_local_filepath(download_filename, download_dir)
-    if use_cache and os.path.exists(local_filepath):
-        print(u'Using cached file {}'.format(local_filepath))
+    def _download(url, download_dir, use_cache, chunk_size=1024):
+        base_url, _, download_filename = url.rpartition('/')
+        local_filepath = get_local_filepath(download_filename, download_dir)
+        if use_cache and os.path.exists(local_filepath):
+            print(u'Using cached file {}'.format(local_filepath))
+            return local_filepath
+        else:
+            print(u'Downloading {} to {}...'.format(download_filename,
+                                                    local_filepath))
+        req = requests.get(url, stream=True)
+        req.raise_for_status()
+        content_length = int(req.headers['content-length'])
+        pbar = get_progress_bar(maxval=content_length)
+        pbar.start()
+        mkdir_p(download_dir)  # Make sure path exists
+        with open(local_filepath, 'wb') as fh:
+            for chunk in req.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    import pdb
+                    pdb.set_trace()
+                if chunk:  # Filter out keep-alive new chunks
+                    fh.write(chunk)
+                    fh.flush()
+                new_pbar_val = pbar.value + chunk_size
+                if new_pbar_val <= pbar.max_value:
+                    pbar.update(new_pbar_val)
+        pbar.finish()
+        print()
         return local_filepath
-    else:
-        print(u'Downloading {} to {}...'.format(download_filename,
-                                                local_filepath))
-    req = requests.get(url, stream=True)
-    req.raise_for_status()
-    content_length = int(req.headers['content-length'])
-    pbar = get_progress_bar(maxval=content_length)
-    pbar.start()
-    mkdir_p(download_dir)  # Make sure path exists
-    with open(local_filepath, 'wb') as fh:
-        for chunk in req.iter_content(chunk_size=chunk_size):
-            if not chunk:
-                import ipdb
-                ipdb.set_trace()
-            if chunk:  # Filter out keep-alive new chunks
-                fh.write(chunk)
-                fh.flush()
-            new_pbar_val = pbar.currval + chunk_size
-            if new_pbar_val <= pbar.maxval:
-                pbar.update(new_pbar_val)
-    pbar.finish()
-    return local_filepath
+
+    local_filepaths = [_download(opts['url'], download_dir=download_dir,
+                                 use_cache=use_cache, chunk_size=chunk_size)]
+
+    if 'postal_codes_url' in opts:
+        local_filepaths.append(
+            _download(opts['postal_codes_url'],
+                      download_dir=os.sep.join([download_dir, 'postal_codes']),
+                      use_cache=use_cache, chunk_size=chunk_size))
+
+    return local_filepaths
 
 
 def get_db_url(database_type, database, username,
@@ -161,13 +182,14 @@ def get_db_session(db_url):
         return db_session
 
 
-def run_importers(db_session, local_filepaths):
-    for importer in get_importer_instances(db_session, *local_filepaths):
+def run_importers(db_session, download_dir, local_filepaths):
+    for importer in get_importer_instances(db_session, download_dir,
+                                           *local_filepaths):
         print("Running importer for {}...".format(importer.filename))
         importer.run()
 
 
-def download_and_import(filename, database_type, database, username,
+def download_and_import(filename, database_type, database, schema, username,
                         password=None, port=None, host='localhost',
                         use_cache=False, download_dir=DEFAULT_DOWNLOAD_DIR,
                         language_code=DEFAULT_LANGUAGE_CODE,
@@ -179,17 +201,17 @@ def download_and_import(filename, database_type, database, username,
     download_config = get_download_config(filename, language_code)
     local_filepaths = []
     for filename, opts in download_config.items():
-        local_filepath = download(opts['url'], download_dir, use_cache)
-        if opts.get('unzip') is True:
-            local_filepath = unzip(local_filepath,
-                                   filename_to_extract=filename,
-                                   extract_dir=download_dir)
-        local_filepaths.append(local_filepath)
+        for local_filepath in download(opts, download_dir, use_cache):
+            if opts.get('unzip') is True:
+                local_filepath = unzip(
+                    local_filepath, filename_to_extract=filename,
+                    extract_dir=os.path.dirname(local_filepath))
+            local_filepaths.append(local_filepath)
 
     create_geoname_tables(db_session, recreate_tables=recreate_tables)
     if not keep_existing_data:
         purge_geoname_tables(db_session)
-    run_importers(db_session, local_filepaths)
+    run_importers(db_session, download_dir, local_filepaths)
 
 
 def main():
@@ -202,6 +224,8 @@ def main():
     parser.add_argument('-t', '--database-type', choices=DATABASE_CHOICES,
                         help='Database type', required=True)
     parser.add_argument('-d', '--database', help='Database name')
+    parser.add_argument('-s', '--schema', help='Database schema name',
+                        default='public')
     parser.add_argument('-u', '--username',
                         help='Database username')
     parser.add_argument('-p', '--password', default=None,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+* Support postal codes.
+* Use alternate schema.
+
 ## 0.1.3 (2014-04-28)
 
 * `sqlageonames` now creates non-existing directories found in the specified `--download-dir`. Fixes #1. Thanks to @llazzaro for the report

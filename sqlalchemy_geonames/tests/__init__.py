@@ -1,9 +1,14 @@
-from nose.tools import eq_, assert_greater
+from __future__ import absolute_import
+
 import os
+
+from nose.tools import eq_, assert_greater
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from .. import GeonameBase, get_importer_instances
-from ..imports import _import_options_map
+
+from sqlalchemy_geonames import GeonameBase, get_importer_instances
+# noinspection PyProtectedMember
+from sqlalchemy_geonames.imports import _import_options_map
 
 test_filenames = (
     'cities1000.txt',
@@ -28,6 +33,7 @@ GeonameBase.metadata.drop_all(bind=engine)
 GeonameBase.metadata.create_all(bind=engine)
 
 
+# noinspection PyAttributeOutsideInit
 class TestBase(object):
 
     def setup(self):
@@ -53,6 +59,7 @@ class TestBase(object):
         importers = get_importer_instances(self.session, *filepaths)
         eq_(importers[-1].filename, 'cities1000.txt')
 
+    # noinspection PyMethodMayBeStatic
     def test_filereaders(self):
         for filename in test_filenames:
             filepath = get_tst_filepath(filename)

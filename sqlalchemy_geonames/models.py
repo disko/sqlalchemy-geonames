@@ -1,23 +1,27 @@
+from __future__ import absolute_import
+
+from geoalchemy2 import Geography
 from sqlalchemy import (Column, ForeignKey, Integer, String, Text, BigInteger,
                         DateTime, Numeric)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from geoalchemy2 import Geography
+
 from .utils import simple_repr
 
-
 GeonameBase = declarative_base()
-
+schema = 'geonames'
 
 class GeonameMetadata(GeonameBase):
-    __tablename__ = 'geonamemetadata'
+    __tablename__ = 'metadata'
+    __table_args__ = {'schema': schema, }
     id = Column(Integer, primary_key=True)
     # TODO: Use this to keep track of data to download
     last_updated = Column(DateTime(timezone=True), nullable=False)
 
 
 class GeonameCountry(GeonameBase):
-    __tablename__ = 'geonamecountry'
+    __tablename__ = 'country'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('country')
 
     iso = Column(String(2), primary_key=True)
@@ -42,7 +46,8 @@ class GeonameCountry(GeonameBase):
 
 
 class GeonameTimezone(GeonameBase):
-    __tablename__ = 'geonametimezone'
+    __tablename__ = 'timezone'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('timezone_id')
 
     # the timezone id (see file timeZone.txt) varchar(40)
@@ -56,7 +61,8 @@ class GeonameTimezone(GeonameBase):
 
 
 class GeonameFeature(GeonameBase):
-    __tablename__ = 'geonamefeature'
+    __tablename__ = 'feature'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('name')
 
     # see http://www.geonames.org/export/codes.html, varchar(10)
@@ -71,6 +77,7 @@ class GeonameFeature(GeonameBase):
 
 class Geoname(GeonameBase):
     __tablename__ = 'geoname'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('name')
 
     # integer id of record in geonames database
@@ -134,3 +141,37 @@ class Geoname(GeonameBase):
     # (Renamed from timezone)
     timezone_id = Column(String(40), ForeignKey(GeonameTimezone.timezone_id))
     timezone = relationship(GeonameFeature)
+
+
+class GeonamePostalCode(GeonameBase):
+    __tablename__ = 'postal_code'
+    __table_args__ = {'schema': schema, }
+    __repr__ = simple_repr('country_code', 'postal_code')
+
+    # iso country code
+    country_code = Column(String(2), ForeignKey(GeonameCountry.iso),
+                          nullable=False, primary_key=True)
+
+    postal_code = Column(String(20), nullable=False, primary_key=True)
+    place_name = Column(String(180), nullable=False, primary_key=True)
+
+    # 1. order subdivision (state)
+    admin_name1 = Column(String(100), nullable=False)
+    admin_code1 = Column(String(20), nullable=False)
+
+    # 2. order subdivision (state)
+    admin_name2 = Column(String(100), nullable=False)
+    admin_code2 = Column(String(20), nullable=False)
+
+    # 3. order subdivision (state)
+    admin_name3 = Column(String(100), nullable=False)
+    admin_code3 = Column(String(20), nullable=False)
+
+    # latitude in decimal degrees (wgs84)
+    # latitude = Column(Numeric(10, 7), nullable=False)
+    # longitude in decimal degrees (wgs84)
+    # longitude = Column(Numeric(10, 7), nullable=False)
+
+    point = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
+
+    accuracy = Column(Integer())
