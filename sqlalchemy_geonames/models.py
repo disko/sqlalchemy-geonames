@@ -9,17 +9,19 @@ from sqlalchemy.orm import relationship
 from .utils import simple_repr
 
 GeonameBase = declarative_base()
-
+schema = 'geonames'
 
 class GeonameMetadata(GeonameBase):
-    __tablename__ = 'geonamemetadata'
+    __tablename__ = 'metadata'
+    __table_args__ = {'schema': schema, }
     id = Column(Integer, primary_key=True)
     # TODO: Use this to keep track of data to download
     last_updated = Column(DateTime(timezone=True), nullable=False)
 
 
 class GeonameCountry(GeonameBase):
-    __tablename__ = 'geonamecountry'
+    __tablename__ = 'country'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('country')
 
     iso = Column(String(2), primary_key=True)
@@ -44,7 +46,8 @@ class GeonameCountry(GeonameBase):
 
 
 class GeonameTimezone(GeonameBase):
-    __tablename__ = 'geonametimezone'
+    __tablename__ = 'timezone'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('timezone_id')
 
     # the timezone id (see file timeZone.txt) varchar(40)
@@ -58,7 +61,8 @@ class GeonameTimezone(GeonameBase):
 
 
 class GeonameFeature(GeonameBase):
-    __tablename__ = 'geonamefeature'
+    __tablename__ = 'feature'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('name')
 
     # see http://www.geonames.org/export/codes.html, varchar(10)
@@ -73,6 +77,7 @@ class GeonameFeature(GeonameBase):
 
 class Geoname(GeonameBase):
     __tablename__ = 'geoname'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('name')
 
     # integer id of record in geonames database
@@ -139,7 +144,8 @@ class Geoname(GeonameBase):
 
 
 class GeonamePostalCode(GeonameBase):
-    __tablename__ = 'geonamepostalcode'
+    __tablename__ = 'postal_code'
+    __table_args__ = {'schema': schema, }
     __repr__ = simple_repr('country_code', 'postal_code')
 
     # iso country code

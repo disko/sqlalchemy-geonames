@@ -189,7 +189,7 @@ def run_importers(db_session, download_dir, local_filepaths):
         importer.run()
 
 
-def download_and_import(filename, database_type, database, username,
+def download_and_import(filename, database_type, database, schema, username,
                         password=None, port=None, host='localhost',
                         use_cache=False, download_dir=DEFAULT_DOWNLOAD_DIR,
                         language_code=DEFAULT_LANGUAGE_CODE,
@@ -224,6 +224,8 @@ def main():
     parser.add_argument('-t', '--database-type', choices=DATABASE_CHOICES,
                         help='Database type', required=True)
     parser.add_argument('-d', '--database', help='Database name')
+    parser.add_argument('-s', '--schema', help='Database schema name',
+                        default='public')
     parser.add_argument('-u', '--username',
                         help='Database username')
     parser.add_argument('-p', '--password', default=None,
