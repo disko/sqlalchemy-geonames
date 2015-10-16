@@ -18,21 +18,19 @@ from __future__ import print_function
 
 import argparse
 import os
-import sys
 from copy import deepcopy
 from zipfile import ZipFile
 
 import requests
 # noinspection PyPackageRequirements
 from progressbar import ProgressBar, ETA, FileTransferSpeed, Percentage, Bar
-from sqlalchemy import engine, create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
 
-from sqlalchemy_geonames import filename_config, get_importer_instances, \
-    GeonameBase
+from sqla import PASSWORD_NOT_SET, config
+from sqlalchemy_geonames.files import filename_config
+from sqlalchemy_geonames.sqla import create_geoname_tables, \
+    purge_geoname_tables
 # noinspection PyProtectedMember
-from sqlalchemy_geonames.imports import _import_options_map
-from sqlalchemy_geonames.utils import get_password, normalize_path, mkdir_p
+from sqlalchemy_geonames.utils import normalize_path, mkdir_p
 
 
 class RawArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
@@ -41,7 +39,6 @@ class RawArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
     pass
 
 
-NOT_SET = object()
 DATABASE_CHOICES = ('postgresql',)
 DEFAULT_DOWNLOAD_DIR = normalize_path('~/.sqlageonames')
 DEFAULT_LANGUAGE_CODE = 'en'
@@ -50,8 +47,6 @@ PRIMARY_GEONAME_FILENAMES = [name for name, opts in filename_config.items()
 LANGUAGE_CHOICES = sorted(set(opts['language_code'] for name, opts
                               in filename_config.items()
                               if 'language_code' in opts))
-
-supported_filenames = _import_options_map.keys()
 
 
 def get_progress_bar(maxval):
@@ -64,6 +59,8 @@ def get_local_filepath(filename, download_dir=DEFAULT_DOWNLOAD_DIR):
 
 
 def get_download_config(primary_filename, language_code=DEFAULT_LANGUAGE_CODE):
+    from sqlalchemy_geonames.imports import _import_options_map
+    supported_filenames = _import_options_map.keys()
     download_config = {k: v for k, v in deepcopy(filename_config).items()
                        if k in supported_filenames}
     for filename, opts in download_config.items():
@@ -122,30 +119,6 @@ def download(opts, download_dir=DEFAULT_DOWNLOAD_DIR, use_cache=True,
     return local_filepaths
 
 
-def get_db_url(database_type, database, username,
-               password=None, port=None, host=None):
-    dburl_kwargs = {
-        'database': database,
-        'host': host,
-        'port': port,
-        'username': username,
-    }
-    if database_type == 'postgresql':
-        dburl_kwargs['drivername'] = 'postgresql+psycopg2'
-    else:
-        sys.exit('Only postgresql is supported at the moment')
-
-    dburl = engine.url.URL(**dburl_kwargs)
-
-    if password is NOT_SET:
-        pass  # No password
-    elif password is None:
-        dburl.password = get_password('Database password: ')
-    else:
-        dburl.password = password
-    return dburl
-
-
 def unzip(zip_filepath, filename_to_extract, extract_dir=DEFAULT_DOWNLOAD_DIR):
     """Unzip file from archive and return path to extracted file"""
     zipfile = ZipFile(zip_filepath)
@@ -154,35 +127,8 @@ def unzip(zip_filepath, filename_to_extract, extract_dir=DEFAULT_DOWNLOAD_DIR):
     return zipfile.extract(member=filename_to_extract, path=extract_dir)
 
 
-def create_geoname_tables(db_session, recreate_tables=False):
-    if recreate_tables:
-        GeonameBase.metadata.drop_all(bind=db_session.bind)
-    GeonameBase.metadata.create_all(bind=db_session.bind)
-
-
-def purge_geoname_tables(db_session):
-    for table in reversed(GeonameBase.metadata.sorted_tables):
-        print('Purging data from {}...'.format(table.name))
-        db_session.bind.execute(table.delete())
-
-
-def get_db_session(db_url):
-    engine = create_engine(db_url)
-    session_factory = sessionmaker(autocommit=False, autoflush=False)
-    Session = scoped_session(session_factory)
-    Session.configure(bind=engine)
-    db_session = Session()
-
-    # Test connection
-    try:
-        db_session.bind.table_names()
-    except:
-        raise
-    else:
-        return db_session
-
-
 def run_importers(db_session, download_dir, local_filepaths):
+    from sqlalchemy_geonames.imports import get_importer_instances
     for importer in get_importer_instances(db_session, download_dir,
                                            *local_filepaths):
         print("Running importer for {}...".format(importer.filename))
@@ -194,10 +140,14 @@ def download_and_import(filename, database_type, database, schema, username,
                         use_cache=False, download_dir=DEFAULT_DOWNLOAD_DIR,
                         language_code=DEFAULT_LANGUAGE_CODE,
                         keep_existing_data=False, recreate_tables=False):
+
+    config.update(schema_name=schema, database_type=database_type,
+                  database=database, username=username, password=password,
+                  port=port, host=host)
+
+    db_session = config.get_db_session()
+
     download_dir = normalize_path(download_dir)
-    db_url = get_db_url(database_type, database, username,
-                        password, port, host)
-    db_session = get_db_session(db_url)
     download_config = get_download_config(filename, language_code)
     local_filepaths = []
     for filename, opts in download_config.items():
@@ -258,7 +208,7 @@ def main():
 
     args = parser.parse_args()
     if args.no_password is True:
-        args.password = NOT_SET
+        args.password = PASSWORD_NOT_SET
     del args.no_password
 
     download_and_import(**vars(args))

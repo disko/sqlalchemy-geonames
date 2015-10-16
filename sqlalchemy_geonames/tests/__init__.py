@@ -6,9 +6,10 @@ from nose.tools import eq_, assert_greater
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from sqlalchemy_geonames import GeonameBase, get_importer_instances
 # noinspection PyProtectedMember
-from sqlalchemy_geonames.imports import _import_options_map
+from sqla import GeonameBase
+from sqlalchemy_geonames.imports import _import_options_map, \
+    get_importer_instances
 
 test_filenames = (
     'cities1000.txt',

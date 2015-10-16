@@ -4,6 +4,7 @@
 
 * Support postal codes.
 * Use alternate schema.
+* Outfactor a lot of DB related config options to make it easier for 3rd party applications to use the package.
 
 ## 0.1.3 (2014-04-28)
 
