@@ -25,7 +25,7 @@ import requests
 # noinspection PyPackageRequirements
 from progressbar import ProgressBar, ETA, FileTransferSpeed, Percentage, Bar
 
-from sqla import PASSWORD_NOT_SET, config
+from sqlalchemy_geonames.sqla import PASSWORD_NOT_SET, config
 from sqlalchemy_geonames.files import filename_config
 from sqlalchemy_geonames.sqla import create_geoname_tables, \
     purge_geoname_tables
