@@ -1,14 +1,12 @@
-SQLAlchemy>=1.0.8
+bunch==1.0.1
 GeoAlchemy2>=0.2.5
-requests>=2.8.0
+progressbar2>=3.2.0
 psycopg2>=2.6.1
+requests>=2.8.0
+SQLAlchemy>=1.0.8
 
 # This install is recommended for performance, but not required.
 # For pip 1.5+ you need to install with
 #   `pip install --allow-external=cdecimal cdecimal`
 # as external urls are no longer allowed by default.
 # cdecimal>=2.3
-
-# NOTE: python-progressbar is not yet py3.3 compatible as of 4 jan 2014.
-#       Use progressbar2 instead (fork of progressbar).
-progressbar2>=3.2.0

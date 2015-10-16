@@ -1,27 +1,26 @@
 from __future__ import absolute_import
 
 from geoalchemy2 import Geography
+from sqlalchemy import func
 from sqlalchemy import (Column, ForeignKey, Integer, String, Text, BigInteger,
                         DateTime, Numeric)
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
-from .utils import simple_repr
+from sqlalchemy_geonames.sqla import config
+from sqlalchemy_geonames.utils import simple_repr
 
-GeonameBase = declarative_base()
-schema = 'geonames'
 
-class GeonameMetadata(GeonameBase):
+class GeonameMetadata(config.Base):
     __tablename__ = 'metadata'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     id = Column(Integer, primary_key=True)
     # TODO: Use this to keep track of data to download
     last_updated = Column(DateTime(timezone=True), nullable=False)
 
 
-class GeonameCountry(GeonameBase):
+class GeonameCountry(config.Base):
     __tablename__ = 'country'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     __repr__ = simple_repr('country')
 
     iso = Column(String(2), primary_key=True)
@@ -45,9 +44,9 @@ class GeonameCountry(GeonameBase):
     equivalent_fips_code = Column(String(255), nullable=False)
 
 
-class GeonameTimezone(GeonameBase):
+class GeonameTimezone(config.Base):
     __tablename__ = 'timezone'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     __repr__ = simple_repr('timezone_id')
 
     # the timezone id (see file timeZone.txt) varchar(40)
@@ -60,9 +59,9 @@ class GeonameTimezone(GeonameBase):
     raw_offset = Column(Numeric(3, 1), nullable=False)
 
 
-class GeonameFeature(GeonameBase):
+class GeonameFeature(config.Base):
     __tablename__ = 'feature'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     __repr__ = simple_repr('name')
 
     # see http://www.geonames.org/export/codes.html, varchar(10)
@@ -75,9 +74,9 @@ class GeonameFeature(GeonameBase):
     description = Column(Text, nullable=False)
 
 
-class Geoname(GeonameBase):
+class Geoname(config.Base):
     __tablename__ = 'geoname'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     __repr__ = simple_repr('name')
 
     # integer id of record in geonames database
@@ -143,9 +142,9 @@ class Geoname(GeonameBase):
     timezone = relationship(GeonameFeature)
 
 
-class GeonamePostalCode(GeonameBase):
+class GeonamePostalCode(config.Base):
     __tablename__ = 'postal_code'
-    __table_args__ = {'schema': schema, }
+    __table_args__ = {'schema': config.schema_name, }
     __repr__ = simple_repr('country_code', 'postal_code')
 
     # iso country code
@@ -175,3 +174,19 @@ class GeonamePostalCode(GeonameBase):
     point = Column(Geography(geometry_type='POINT', srid=4326), nullable=False)
 
     accuracy = Column(Integer())
+
+    def within_a_radius_of(self, km):
+        """ Find all other postal codes within the given radius.
+
+        Args:
+            self, km
+
+        Returns:
+            list of :class:`GeonamePostalCode`
+        """
+
+        session = config.get_db_session()
+
+        return session.query(GeonamePostalCode).filter(
+            func.ST_DWithin(GeonamePostalCode.point, self.point, km * 1000)
+        ).all()
