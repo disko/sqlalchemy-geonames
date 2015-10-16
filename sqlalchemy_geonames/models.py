@@ -4,6 +4,7 @@ from geoalchemy2 import Geography
 from sqlalchemy import func
 from sqlalchemy import (Column, ForeignKey, Integer, String, Text, BigInteger,
                         DateTime, Numeric)
+from sqlalchemy import or_
 from sqlalchemy.orm import relationship
 
 from sqlalchemy_geonames.sqla import config
@@ -175,7 +176,7 @@ class GeonamePostalCode(config.Base):
 
     accuracy = Column(Integer())
 
-    def within_a_radius_of(self, km):
+    def within_a_radius_of(self, radius):
         """ Find all other postal codes within the given radius.
 
         Args:
@@ -188,5 +189,24 @@ class GeonamePostalCode(config.Base):
         session = config.get_db_session()
 
         return session.query(GeonamePostalCode).filter(
-            func.ST_DWithin(GeonamePostalCode.point, self.point, km * 1000)
-        ).all()
+            func.ST_DWithin(GeonamePostalCode.point, self.point, radius * 1000)
+        )
+
+    @classmethod
+    def postal_codes_around(cls, postal_code, radius):
+        """ List of postal codes within ``radius`` km around ``postal code``
+
+        """
+
+        session = config.get_db_session()
+        conditions = []
+
+        for center in session.query(cls).filter(
+                        cls.postal_code == postal_code).all():
+            conditions.append(
+                func.ST_DWithin(cls.point, center.point, radius * 1000)
+            )
+
+        return session.query(cls).filter(or_(*conditions))
+
+
